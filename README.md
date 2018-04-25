@@ -1,7 +1,7 @@
 ---
 services: key-vault
 platforms: java
-author: tifchen
+author: tiffanyachen
 ---
 
 # Recovery scenario samples for Azure Key Vault using the Azure Java SDK
