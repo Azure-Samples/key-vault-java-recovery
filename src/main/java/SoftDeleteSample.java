@@ -90,11 +90,11 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
 
         System.out.printf("Created vault %s and vault %s%n", vaultToRecover.name(), vaultToPurge.name());
 
-        azure.vaults().delete(RESOURCE_GROUP, vaultToRecover.name());
+        azure.vaults().deleteByResourceGroup(RESOURCE_GROUP, vaultToRecover.name());
         pollOnVaultDeletion(vaultToRecover.name());
         System.out.printf("Deleted vault %s.%n", vaultToRecover.name());
 
-        azure.vaults().delete(RESOURCE_GROUP, vaultToPurge.name());
+        azure.vaults().deleteByResourceGroup(RESOURCE_GROUP, vaultToPurge.name());
         pollOnVaultDeletion(vaultToPurge.name());
         System.out.printf("Deleted vault %s.%n", vaultToPurge.name());
 
@@ -116,7 +116,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
         VaultCreateOrUpdateParameters vaultParameters = new VaultCreateOrUpdateParameters()
                 .withLocation(RESOURCE_GROUP)
                 .withProperties(recoverProperties);
-        
+
         Vault recoveredVault = azure.vaults().define(deletedVault.name())
                 .withRegion(VAULT_REGION)
                 .withExistingResourceGroup(RESOURCE_GROUP)
