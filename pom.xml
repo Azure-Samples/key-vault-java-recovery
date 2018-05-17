@@ -23,12 +23,12 @@
     <dependency>
         <groupId>com.microsoft.azure</groupId>
         <artifactId>azure-mgmt-keyvault</artifactId>
-        <version>1.10.1</version>
+        <version>1.11.1</version>
     </dependency>
     <dependency>
         <groupId>com.microsoft.azure</groupId>
         <artifactId>azure</artifactId>
-        <version>1.10.1</version>
+        <version>1.11.1</version>
     </dependency>
         <dependency>
             <groupId>com.microsoft.azure</groupId>
