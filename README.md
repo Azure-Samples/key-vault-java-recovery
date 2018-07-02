@@ -31,7 +31,11 @@ SoftDeleteSample.java:
         deletedKeyRecovery -- a sample of enumerating, retrieving, recovering and purging deleted keys from a key vault
         deletedSecretRecovery -- a sample of enumerating, retrieving, recovering and purging deleted secrets from a key vault
 
-
+## Prerequisites
+- Java 1.7+
+- An Azure Service Principal, through [Azure CLI](http://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal-cli/),
+[PowerShell](http://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal/)
+or [Azure Portal](http://azure.microsoft.com/documentation/articles/resource-group-create-service-principal-portal/).
 
 ## Running the samples
 1. If not installed, install [Java](https://www.java.com/en/download/help/download_options.xml).

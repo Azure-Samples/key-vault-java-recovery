@@ -35,23 +35,23 @@
                     <systemProperties>
                         <systemProperty>
                             <key>AZURE_TENANT_ID</key>
-                            <value>72f988bf-86f1-41af-91ab-2d7cd011db47</value>
+                            <value></value>
                         </systemProperty>
                         <systemProperty>
                             <key>AZURE_CLIENT_ID</key>
-                            <value>aebcfe62-b73b-43bb-83f5-808c8211d77a</value>
+                            <value></value>
                         </systemProperty>
                         <systemProperty>
                             <key>AZURE_CLIENT_SECRET</key>
-                            <value>fF1SEmYRuy6uZ3zNVo2XaiyZ8qwwni02xRS4IIAI2Xc=</value>
+                            <value></value>
                         </systemProperty>
                         <systemProperty>
                             <key>AZURE_OBJECT_ID</key>
-                            <value>a3e64fe7-2d6c-4829-a5e5-a04d5fb0f833</value>
+                            <value></value>
                         </systemProperty>
                         <systemProperty>
                             <key>AZURE_RESOURCE_GROUP</key>
-                            <value>tifchen-storage-rg</value>
+                            <value></value>
                         </systemProperty>
                     </systemProperties>
                 </configuration>
@@ -62,17 +62,17 @@
     <dependency>
         <groupId>com.microsoft.azure</groupId>
         <artifactId>azure-mgmt-keyvault</artifactId>
-        <version>1.9.1-SNAPSHOT</version>
+        <version>1.11.1</version>
     </dependency>
     <dependency>
         <groupId>com.microsoft.azure</groupId>
         <artifactId>azure</artifactId>
-        <version>1.9.1-SNAPSHOT</version>
+        <version>1.11.1</version>
     </dependency>
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-keyvault</artifactId>
-            <version>1.1-beta-1</version>
+            <version>1.1</version>
         </dependency>
     </dependencies>
 </project>
