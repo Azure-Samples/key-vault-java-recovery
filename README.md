@@ -50,16 +50,35 @@ git clone https://github.com/Azure-Samples/key-vault-java-authentication.git
 or [Azure Portal](http://azure.microsoft.com/documentation/articles/resource-group-create-service-principal-portal/).
 Note that if you wish to authenticate with the certificate authenticator the certificate should be saved locally.
 
-4. Export these environment variables into your current shell or IDE.
+4. Add the following values to the pom.xml in the configurations for the exec-maven-plugin.
 ```
-    AZURE_TENANT_ID={your tenant id}
-    AZURE_CLIENT_ID={your service principal AppID}
-    AZURE_CLIENT_SECRET={your application key}
+<systemProperties>
+        <systemProperty>
+                <key>AZURE_TENANT_ID</key>
+                <value>{AZURE_TENANT_ID}</value>
+        </systemProperty>
+        <systemProperty>
+                <key>AZURE_CLIENT_ID</key>
+                <value>{AZURE_CLIENT_ID}</value>
+        </systemProperty>
+        <systemProperty>
+                <key>AZURE_CLIENT_SECRET</key>
+                <value>{AZURE_CLIENT_SECRET}</value>
+        </systemProperty>
+        <systemProperty>
+                <key>AZURE_OBJECT_ID</key>
+                <value>{AZURE_OBJECT_ID}</value>
+        </systemProperty>
+        <systemProperty>
+                <key>AZURE_RESOURCE_GROUP</key>
+                <value>{AZURE_RESOURCE_GROUP}</value>
+        </systemProperty>
+<systemProperties>
 ```
 
 AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET must be set for general Azure authentication.
 
-5. Run main.java for a sample run through. This project uses maven so you can do so either through an IDE or on the command line.
+5. Run ```mvn clean compile exec:java``` for a full run-through.
 
 ## More information
 
