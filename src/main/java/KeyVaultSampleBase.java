@@ -24,12 +24,12 @@ public class KeyVaultSampleBase {
     protected static KeyVaultClient keyVaultClient;
     protected static Azure azure;
 
-    protected static final Region VAULT_REGION = Region.US_WEST;
-    protected static final String AZURE_CLIENT_ID = System.getenv("AZURE_CLIENT_ID");
-    protected static final String AZURE_OBJECT_ID = System.getenv("AZURE_OBJECT_ID");
-    protected static final String AZURE_CLIENT_SECRET = System.getenv("AZURE_CLIENT_SECRET");
-    protected static final String AZURE_TENANT_ID = System.getenv("AZURE_TENANT_ID");
-    protected static final String RESOURCE_GROUP = System.getenv("AZURE_RESOURCE_GROUP");
+    protected static final Region VAULT_REGION = Region.US_WEST_CENTRAL;
+    protected static final String AZURE_CLIENT_ID = System.getProperty("AZURE_CLIENT_ID");
+    protected static final String AZURE_CLIENT_SECRET = System.getProperty("AZURE_CLIENT_SECRET");
+    protected static final String AZURE_TENANT_ID = System.getProperty("AZURE_TENANT_ID");
+    protected static final String AZURE_OBJECT_ID = System.getProperty("AZURE_OBJECT_ID");
+    protected static final String RESOURCE_GROUP = System.getProperty("AZURE_RESOURCE_GROUP");
 
     static {
         authenticateToAzure();
@@ -95,9 +95,6 @@ public class KeyVaultSampleBase {
     private static AuthenticationResult getAccessToken(String authorization, String resource)
             throws InterruptedException, ExecutionException, MalformedURLException {
 
-        String clientId = System.getenv("AZURE_CLIENT_ID");
-        String clientKey = System.getenv("AZURE_CLIENT_SECRET");
-
         AuthenticationResult result = null;
 
         // Starts a service to fetch access token.
@@ -109,8 +106,8 @@ public class KeyVaultSampleBase {
             Future<AuthenticationResult> future = null;
 
             // Acquires token based on client ID and client secret.
-            if (clientKey != null && clientKey != null) {
-                ClientCredential credentials = new ClientCredential(clientId, clientKey);
+            if (AZURE_CLIENT_SECRET != null && AZURE_CLIENT_SECRET != null) {
+                ClientCredential credentials = new ClientCredential(AZURE_CLIENT_ID, AZURE_CLIENT_SECRET);
                 future = context.acquireToken(resource, credentials, null);
             }
 
@@ -127,8 +124,8 @@ public class KeyVaultSampleBase {
 
     private static void authenticateToAzure() {
         // Authentication for general Azure service
-        ApplicationTokenCredentials credentials = new ApplicationTokenCredentials(System.getenv("AZURE_CLIENT_ID"),
-                System.getenv("AZURE_TENANT_ID"), System.getenv("AZURE_CLIENT_SECRET"), AzureEnvironment.AZURE);
+        ApplicationTokenCredentials credentials = new ApplicationTokenCredentials(AZURE_CLIENT_ID, AZURE_TENANT_ID,
+                AZURE_CLIENT_SECRET, AzureEnvironment.AZURE);
 
         try {
             azure = Azure.configure().withLogLevel(LogLevel.BASIC).authenticate(credentials).withDefaultSubscription();

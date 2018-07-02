@@ -12,9 +12,48 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.7.0</version>
                 <configuration>
                     <source>1.7</source>
                     <target>1.7</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>Main</mainClass>
+                    <cleanupDaemonThreads>false</cleanupDaemonThreads>
+                    <systemProperties>
+                        <systemProperty>
+                            <key>AZURE_TENANT_ID</key>
+                            <value>72f988bf-86f1-41af-91ab-2d7cd011db47</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>AZURE_CLIENT_ID</key>
+                            <value>aebcfe62-b73b-43bb-83f5-808c8211d77a</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>AZURE_CLIENT_SECRET</key>
+                            <value>fF1SEmYRuy6uZ3zNVo2XaiyZ8qwwni02xRS4IIAI2Xc=</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>AZURE_OBJECT_ID</key>
+                            <value>a3e64fe7-2d6c-4829-a5e5-a04d5fb0f833</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>AZURE_RESOURCE_GROUP</key>
+                            <value>tifchen-storage-rg</value>
+                        </systemProperty>
+                    </systemProperties>
                 </configuration>
             </plugin>
         </plugins>
