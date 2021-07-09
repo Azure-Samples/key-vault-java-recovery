@@ -93,7 +93,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
                 .apply();
 
         System.out.printf("Updated vault %s for soft delete: enableSoftDelete = %s%n", vaultName, vault.softDeleteEnabled());
-        System.out.println(azure.vaults().listByResourceGroup(RESOURCE_GROUP));
+        System.out.println(azure.vaults().listByResourceGroup(RESOURCE_GROUP).stream().collect(Collectors.toList()).get(0));
 
     }
 
@@ -165,7 +165,6 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
 
     /**
      * A sample of enumerating, retrieving, recovering and purging deleted keys from a key vault
-     *
      * @throws Exception
      */
     public static void deletedKeyRecovery() throws Exception {
@@ -263,7 +262,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
 
         // List the vault secrets
         secrets = vault.secrets().list().stream().collect(Collectors.toList());
-        System.out.printf("Secret: %s.%n", Arrays.toString(secrets.toArray()));
+        System.out.printf("Secrets: %s.%n", Arrays.toString(secrets.toArray()));
 
     }
 
