@@ -131,7 +131,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
 
         // to restore the vault simply supply the group, location, and name and set the 'create_mode' vault property to 'recover'
         // setting this property will cause other properties passed to create_or_update to be ignored and will simply
-        // restore the vault in the stat e it was when it was deleted
+        // restore the vault in the state it was when it was deleted
         VaultProperties recoverProperties = new VaultProperties()
                 .withTenantId(UUID.fromString(AZURE_TENANT_ID))
                 .withCreateMode(CreateMode.RECOVER);
