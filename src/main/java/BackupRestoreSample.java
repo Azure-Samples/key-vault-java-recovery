@@ -1,10 +1,19 @@
-import com.microsoft.azure.keyvault.models.*;
-import com.microsoft.azure.keyvault.webkey.JsonWebKeyType;
-import com.microsoft.azure.management.keyvault.Vault;
+import com.azure.core.http.rest.PagedIterable;
+import com.azure.resourcemanager.keyvault.models.Vault;
+import com.azure.security.keyvault.keys.KeyClient;
+import com.azure.security.keyvault.keys.KeyClientBuilder;
+import com.azure.security.keyvault.keys.models.CreateRsaKeyOptions;
+import com.azure.security.keyvault.keys.models.KeyOperation;
+import com.azure.security.keyvault.keys.models.KeyProperties;
+import com.azure.security.keyvault.keys.models.KeyVaultKey;
+import com.azure.security.keyvault.secrets.SecretClient;
+import com.azure.security.keyvault.secrets.SecretClientBuilder;
+import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
+import com.azure.security.keyvault.secrets.models.SecretProperties;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.List;
 
 public class BackupRestoreSample extends KeyVaultSampleBase {
 
@@ -26,25 +35,36 @@ public class BackupRestoreSample extends KeyVaultSampleBase {
         String secretName = getRandomName("secret");
         String secretValue = "This secret is being moved from one vault to another";
 
-        SecretBundle secret = keyVaultClient.setSecret(firstVault.vaultUri(), secretName, secretValue);
-        System.out.printf("Created secret %s%n", secret.id());
+        SecretClient secretClient = new SecretClientBuilder()
+                .vaultUrl(firstVault.vaultUri())
+                .credential(createToken())
+                .buildClient();
+
+        KeyVaultSecret secret = secretClient.setSecret(secretName, secretValue);
+        System.out.printf("Created secret with name: %s%n", secret.getName());
 
         //List the secrets in the vaults
-        List<SecretItem> secrets = keyVaultClient.getSecrets(firstVault.vaultUri());
-        System.out.printf("Vault %s secrets: %s%n", firstVault.vaultUri(), Arrays.toString(secrets.toArray()));
+        PagedIterable<SecretProperties> secretProperties = secretClient.listPropertiesOfSecrets();
+        System.out.printf("Vault %s secrets: %s%n", firstVault.vaultUri(),
+                Arrays.toString(secretProperties.stream().map(SecretProperties::getName).toArray()));
 
         //Back up the secret
-        BackupSecretResult backup = keyVaultClient.backupSecret(firstVault.vaultUri(), secretName);
-        System.out.printf("Backed up secret %s%n", backup.toString());
+        byte[] backup = secretClient.backupSecret(secretName);
+        System.out.printf("Backed up secret: %s%n", new String(backup, StandardCharsets.UTF_8));
 
         //Create a second vault
         Vault secondVault = createKeyVault(getRandomName("vault"), RESOURCE_GROUP);
+        SecretClient secondSecretClient = new SecretClientBuilder()
+                .vaultUrl(secondVault.vaultUri())
+                .credential(createToken())
+                .buildClient();
 
-        SecretBundle restored = keyVaultClient.restoreSecret(secondVault.vaultUri(), backup.value());
-        System.out.printf("Restored secret %s%n", restored.toString());
+        KeyVaultSecret restoredSecret = secondSecretClient.restoreSecretBackup(backup);
+        System.out.printf("Restored secret with name: %s%n", restoredSecret.getName());
 
-        List<SecretItem> newVaultSecrets = keyVaultClient.getSecrets(secondVault.vaultUri());
-        System.out.printf("Vault %s secrets: %s%n", secondVault.vaultUri(), Arrays.toString(newVaultSecrets.toArray()));
+        PagedIterable<SecretProperties> newVaultSecretProperties = secondSecretClient.listPropertiesOfSecrets();
+        System.out.printf("Vault %s secrets: %s%n", secondVault.vaultUri(),
+                Arrays.toString(newVaultSecretProperties.stream().map(SecretProperties::getName).toArray()));
 
     }
 
@@ -58,25 +78,37 @@ public class BackupRestoreSample extends KeyVaultSampleBase {
         //Add a secret to the vault
         String keyName = getRandomName("key");
 
-        KeyBundle key = keyVaultClient.createKey(firstVault.vaultUri(), keyName, JsonWebKeyType.RSA);
-        System.out.printf("Created key %s%n", key.toString());
+        KeyClient keyClient = new KeyClientBuilder()
+                .vaultUrl(firstVault.vaultUri())
+                .credential(createToken())
+                .buildClient();
+        KeyVaultKey key = keyClient.createRsaKey(new CreateRsaKeyOptions(keyName)
+                .setKeyOperations(KeyOperation.UNWRAP_KEY, KeyOperation.WRAP_KEY, KeyOperation.DECRYPT,
+                        KeyOperation.ENCRYPT, KeyOperation.SIGN, KeyOperation.VERIFY));
+        System.out.printf("Created key with name: %s%n", key.getName());
 
         //List the secrets in the vault
-        List<KeyItem> keys = keyVaultClient.getKeys(firstVault.vaultUri());
-        System.out.printf("Vault %s keys: %s%n", firstVault.vaultUri(), Arrays.toString(keys.toArray()));
+        PagedIterable<KeyProperties> keyProperties = keyClient.listPropertiesOfKeys();
+        System.out.printf("Vault %s keys: %s%n", firstVault.vaultUri(),
+                Arrays.toString(keyProperties.stream().map(KeyProperties::getName).toArray()));
 
         //Back up the secret
-        BackupKeyResult backup = keyVaultClient.backupKey(firstVault.vaultUri(), keyName);
-        System.out.printf("Backed up key %s%n", backup.toString());
+        byte[] backup = keyClient.backupKey(keyName);
+        System.out.printf("Backed up key: %s%n", new String(backup, StandardCharsets.UTF_8));
 
         //Create a second vault
         Vault secondVault = createKeyVault(getRandomName("vault"), RESOURCE_GROUP);
+        KeyClient secondKeyClient = new KeyClientBuilder()
+                .vaultUrl(secondVault.vaultUri())
+                .credential(createToken())
+                .buildClient();
 
-        KeyBundle restored = keyVaultClient.restoreKey(secondVault.vaultUri(), backup.value());
-        System.out.printf("Restored key %s%n", restored.toString());
+        KeyVaultKey restoredKey = secondKeyClient.restoreKeyBackup(backup);
+        System.out.printf("Restored key with name: %s%n", restoredKey.getName());
 
-        List<KeyItem> newVaultKeys = keyVaultClient.getKeys(secondVault.vaultUri());
-        System.out.printf("Vault %s keys: %s%n", secondVault.vaultUri(), Arrays.toString(newVaultKeys.toArray()));
+        PagedIterable<KeyProperties> newVaultKeyProperties = secondKeyClient.listPropertiesOfKeys();
+        System.out.printf("Vault %s keys: %s%n", secondVault.vaultUri(),
+                Arrays.toString(newVaultKeyProperties.stream().map(KeyProperties::getName).toArray()));
     }
 
 

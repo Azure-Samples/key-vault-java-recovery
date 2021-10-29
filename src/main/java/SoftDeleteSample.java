@@ -1,17 +1,40 @@
-import com.microsoft.azure.keyvault.models.*;
-import com.microsoft.azure.keyvault.requests.CreateCertificateRequest;
-import com.microsoft.azure.keyvault.webkey.JsonWebKeyType;
-import com.microsoft.azure.management.keyvault.*;
+import com.azure.core.http.rest.PagedIterable;
+import com.azure.resourcemanager.keyvault.models.CreateMode;
+import com.azure.resourcemanager.keyvault.models.DeletedVault;
+import com.azure.resourcemanager.keyvault.models.Vault;
+import com.azure.resourcemanager.keyvault.models.VaultCreateOrUpdateParameters;
+import com.azure.resourcemanager.keyvault.models.VaultProperties;
+import com.azure.security.keyvault.certificates.CertificateClient;
+import com.azure.security.keyvault.certificates.CertificateClientBuilder;
+import com.azure.security.keyvault.certificates.models.CertificateContentType;
+import com.azure.security.keyvault.certificates.models.CertificateOperation;
+import com.azure.security.keyvault.certificates.models.CertificatePolicy;
+import com.azure.security.keyvault.certificates.models.CertificateProperties;
+import com.azure.security.keyvault.certificates.models.DeletedCertificate;
+import com.azure.security.keyvault.certificates.models.KeyVaultCertificateWithPolicy;
+import com.azure.security.keyvault.keys.KeyClient;
+import com.azure.security.keyvault.keys.KeyClientBuilder;
+import com.azure.security.keyvault.keys.models.CreateRsaKeyOptions;
+import com.azure.security.keyvault.keys.models.DeletedKey;
+import com.azure.security.keyvault.keys.models.KeyOperation;
+import com.azure.security.keyvault.keys.models.KeyProperties;
+import com.azure.security.keyvault.keys.models.KeyVaultKey;
+import com.azure.security.keyvault.secrets.SecretClient;
+import com.azure.security.keyvault.secrets.SecretClientBuilder;
+import com.azure.security.keyvault.secrets.models.DeletedSecret;
+import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
+import com.azure.security.keyvault.secrets.models.SecretProperties;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 public class SoftDeleteSample extends KeyVaultSampleBase {
 
-    public SoftDeleteSample() throws IOException{
+    public SoftDeleteSample() throws IOException {
         super();
     }
 
@@ -36,6 +59,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
                 .allowCertificateAllPermissions()
                 .allowKeyAllPermissions()
                 .allowSecretAllPermissions()
+                .allowStorageAllPermissions()
                 .attach()
                 .withDeploymentEnabled()
                 .withDiskEncryptionEnabled()
@@ -51,8 +75,8 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
     }
 
     /*
- * Enables soft delete on an existing vault.
- */
+     * Enables soft delete on an existing vault.
+     */
     public static void enableSoftDeleteOnExistingVault() throws InterruptedException {
 
         String vaultName = getRandomName("vault");
@@ -70,7 +94,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
                 .apply();
 
         System.out.printf("Updated vault %s for soft delete: enableSoftDelete = %s%n", vaultName, vault.softDeleteEnabled());
-        System.out.println(azure.vaults().listByResourceGroup(RESOURCE_GROUP).get(0));
+        System.out.println(azure.vaults().listByResourceGroup(RESOURCE_GROUP).stream().collect(Collectors.toList()).get(0));
 
     }
 
@@ -99,7 +123,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
         System.out.printf("Deleted vault %s.%n", vaultToPurge.name());
 
         //List the deleted vaults
-        List<DeletedVault> deletedVaults = azure.vaults().listDeleted();
+        PagedIterable<DeletedVault> deletedVaults = azure.vaults().listDeleted();
         System.out.printf("Deleted vaults: %s:%s.%n", deletedVaultsToString(deletedVaults).toArray());
 
         //Get details of a specific vault.
@@ -121,7 +145,6 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
                 .withRegion(VAULT_REGION)
                 .withExistingResourceGroup(RESOURCE_GROUP)
                 .withEmptyAccessPolicy()
-                .withCreateMode(CreateMode.RECOVER)
                 .create();
 
 
@@ -156,38 +179,49 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
         String keyToRecoverName = getRandomName("key");
         String keyToPurgeName = getRandomName("key");
 
-        KeyBundle key = keyVaultClient.createKey(vault.vaultUri(), keyToRecoverName, JsonWebKeyType.RSA);
-        System.out.printf("Create key %s.%n", key.keyIdentifier().toString());
 
-        key = keyVaultClient.createKey(vault.vaultUri(), keyToPurgeName, JsonWebKeyType.RSA);
-        System.out.printf("Create key %s.%n", key.keyIdentifier().toString());
+        KeyClient keyClient = new KeyClientBuilder()
+                .credential(createToken())
+                .vaultUrl(vault.vaultUri())
+                .buildClient();
 
-        List<KeyItem> keys = keyVaultClient.listKeys(vault.vaultUri());
-        System.out.printf("Keys: %s.%n", Arrays.toString(keys.toArray()));
+        KeyVaultKey key = keyClient.createRsaKey(new CreateRsaKeyOptions(keyToRecoverName).
+                setKeyOperations(KeyOperation.UNWRAP_KEY, KeyOperation.WRAP_KEY,
+                        KeyOperation.VERIFY, KeyOperation.ENCRYPT, KeyOperation.DECRYPT));
+        System.out.printf("Created key with name: %s.%n", key.getName());
 
-        DeletedKeyBundle deletedKey = keyVaultClient.deleteKey(vault.vaultUri(), keyToRecoverName);
-        pollOnKeyDeletion(vault.vaultUri(), keyToRecoverName);
-        System.out.printf("Deleted key %s.%n", deletedKey.toString());
+        key = keyClient.createRsaKey(new CreateRsaKeyOptions(keyToPurgeName).
+                setKeyOperations(KeyOperation.UNWRAP_KEY, KeyOperation.WRAP_KEY,
+                        KeyOperation.VERIFY, KeyOperation.ENCRYPT, KeyOperation.DECRYPT));
+        System.out.printf("Created key with name: %s.%n", key.getName());
 
-        deletedKey = keyVaultClient.deleteKey(vault.vaultUri(), keyToPurgeName);
-        pollOnKeyDeletion(vault.vaultUri(), keyToPurgeName);
-        System.out.printf("Deleted key %s.%n", deletedKey.toString());
+        PagedIterable<KeyProperties> keyProperties = keyClient.listPropertiesOfKeys();
+        System.out.printf("Keys: %s.%n", Arrays.toString(keyProperties.stream().map(KeyProperties::getName).toArray()));
+
+        DeletedKey deletedKey = keyClient.beginDeleteKey(keyToRecoverName).poll().getValue();
+        pollOnKeyDeletion(keyClient, keyToRecoverName);
+        System.out.printf("Deleted key with name: %s.%n", deletedKey.getName());
+
+        deletedKey = keyClient.beginDeleteKey(keyToPurgeName).poll().getValue();
+        pollOnKeyDeletion(keyClient, keyToPurgeName);
+        System.out.printf("Deleted key with name: %s.%n", deletedKey.getName());
 
         // List deleted keys
-        List<DeletedKeyItem> deletedKeys = keyVaultClient.getDeletedKeys(vault.vaultUri());
-        System.out.printf("Deleted keys %s.%n", Arrays.toString(deletedKeys.toArray()));
+        PagedIterable<DeletedKey> deletedKeys = keyClient.listDeletedKeys();
+        System.out.printf("Deleted keys: %s.%n",
+                Arrays.toString(deletedKeys.stream().map(DeletedKey::getName).toArray()));
 
         // Recover a deleted key
-        key = keyVaultClient.recoverDeletedKey(vault.vaultUri(), keyToRecoverName);
-        System.out.printf("Recovered key %s%n", key.toString());
+        KeyVaultKey keyVaultKey = keyClient.beginRecoverDeletedKey(keyToRecoverName).poll().getValue();
+        System.out.printf("Recovered key with name:%s%n", keyVaultKey.getName());
 
         // Purge a deleted key
-        keyVaultClient.purgeDeletedKey(vault.vaultUri(), keyToPurgeName);
-        System.out.printf("Purged key %s.%n,", keyToPurgeName);
+        keyClient.purgeDeletedKey(keyToPurgeName);
+        System.out.printf("Purged key with name: %s.%n,", keyToPurgeName);
 
         // List the vault keys
-        keys = keyVaultClient.listKeys(vault.vaultUri());
-        System.out.printf("Keys: %s.%n", Arrays.toString(keys.toArray()));
+        keyProperties = keyClient.listPropertiesOfKeys();
+        System.out.printf("Keys: %s.%n", Arrays.toString(keyProperties.stream().map(KeyProperties::getName).toArray()));
 
     }
 
@@ -200,39 +234,46 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
         String secretToRecoverName = getRandomName("secret");
         String secretToPurgeName = getRandomName("secret");
 
-        SecretBundle secret = keyVaultClient.setSecret(vault.vaultUri(), secretToRecoverName, "secret to recover");
-        System.out.printf("Create secret %s.%n", secret.toString());
+        SecretClient secretClient = new SecretClientBuilder()
+                .credential(createToken())
+                .vaultUrl(vault.vaultUri())
+                .buildClient();
 
+        KeyVaultSecret secret = secretClient.setSecret(secretToRecoverName, "secret to recover");
+        System.out.printf("Create secret with name: %s.%n", secret.getName());
 
-        secret = keyVaultClient.setSecret(vault.vaultUri(), secretToPurgeName, "secret to purge");
-        System.out.printf("Create secret %s.%n", secret.toString());
+        secret = secretClient.setSecret(secretToPurgeName, "secret to purge");
+        System.out.printf("Create secret with name: %s.%n", secret.getName());
 
-        List<SecretItem> secrets = keyVaultClient.getSecrets(vault.vaultUri());
-        System.out.printf("Secret: %s.%n", Arrays.toString(secrets.toArray()));
+        PagedIterable<SecretProperties> secretProperties = secretClient.listPropertiesOfSecrets();
+        System.out.printf("Secrets: %s.%n",
+                Arrays.toString(secretProperties.stream().map(SecretProperties::getName).toArray()));
 
-        DeletedSecretBundle deletedSecret = keyVaultClient.deleteSecret(vault.vaultUri(), secretToRecoverName);
-        pollOnSecretDeletion(vault.vaultUri(), secretToRecoverName);
-        System.out.printf("Deleted secret %s.%n", deletedSecret.toString());
+        DeletedSecret deletedSecret = secretClient.beginDeleteSecret(secretToRecoverName).poll().getValue();
+        pollOnSecretDeletion(secretClient, secretToRecoverName);
+        System.out.printf("Deleted secret with name: %s%n", deletedSecret.getName());
 
-        deletedSecret = keyVaultClient.deleteSecret(vault.vaultUri(), secretToPurgeName);
-        pollOnSecretDeletion(vault.vaultUri(), secretToPurgeName);
-        System.out.printf("Deleted secret %s.%n", deletedSecret.toString());
+        deletedSecret = secretClient.beginDeleteSecret(secretToPurgeName).poll().getValue();
+        pollOnSecretDeletion(secretClient, secretToPurgeName);
+        System.out.printf("Deleted secret with name: %s.%n", deletedSecret.getName());
 
         // List deleted secrets
-        List<DeletedSecretItem> deletedSecrets = keyVaultClient.getDeletedSecrets(vault.vaultUri());
-        System.out.printf("Deleted secret %s.%n", Arrays.toString(deletedSecrets.toArray()));
+        PagedIterable<DeletedSecret> deletedSecrets = secretClient.listDeletedSecrets();
+        System.out.printf("Deleted secrets: %s.%n",
+                Arrays.toString(deletedSecrets.stream().map(DeletedSecret::getName).toArray()));
 
         // Recover a deleted secret
-        secret = keyVaultClient.recoverDeletedSecret(vault.vaultUri(), secretToRecoverName);
-        System.out.printf("Recovered secret %s%n", secret.toString());
+        secret = secretClient.beginRecoverDeletedSecret(secretToRecoverName).poll().getValue();
+        System.out.printf("Recovered secret with name: %s%n", secret.getName());
 
         // Purge a deleted secret
-        keyVaultClient.purgeDeletedSecret(vault.vaultUri(), secretToPurgeName);
-        System.out.printf("Purged secret %s.%n,", secretToPurgeName);
+        secretClient.purgeDeletedSecret(secretToPurgeName);
+        System.out.printf("Purged secret with name: %s.%n,", secretToPurgeName);
 
         // List the vault secrets
-        secrets = keyVaultClient.listSecrets(vault.vaultUri());
-        System.out.printf("Secrets: %s.%n", Arrays.toString(secrets.toArray()));
+        secretProperties = secretClient.listPropertiesOfSecrets();
+        System.out.printf("Secrets: %s.%n",
+                Arrays.toString(secretProperties.stream().map(SecretProperties::getName).toArray()));
 
     }
 
@@ -245,68 +286,64 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
         String certificateToRecoverName = getRandomName("certificate");
         String certificateToPurgeName = getRandomName("certificate");
 
+        CertificateClient certificateClient = new CertificateClientBuilder()
+                .credential(createToken())
+                .vaultUrl(vault.vaultUri())
+                .buildClient();
+
+
         SecretProperties secretProperties = new SecretProperties();
-        secretProperties.withContentType(MIME_PKCS12);
+        secretProperties.setContentType(MIME_PKCS12);
 
-        X509CertificateProperties x509Properties = new X509CertificateProperties();
         String subjectName = "CN=ManualEnrollmentJava";
-        x509Properties.withSubject(subjectName);
-        x509Properties.withValidityInMonths(12);
 
-        // Set issuer to "Unknown"
-        IssuerParameters issuerParameters = new IssuerParameters();
-        issuerParameters.withName(ISSUER_UNKNOWN);
+        CertificatePolicy certificatePolicy = new CertificatePolicy(ISSUER_UNKNOWN, subjectName)
+                .setValidityInMonths(12)
+                .setContentType(CertificateContentType.PKCS12);
 
-        CertificatePolicy certificatePolicy = new CertificatePolicy()
-                .withSecretProperties(secretProperties)
-                .withIssuerParameters(issuerParameters)
-                .withX509CertificateProperties(x509Properties);
+        CertificateOperation certificate = certificateClient
+                .beginCreateCertificate(certificateToRecoverName, certificatePolicy).poll().getValue();
 
-        CertificateOperation certificate = keyVaultClient.createCertificate(
-                new CreateCertificateRequest
-                        .Builder(vault.vaultUri(), certificateToRecoverName)
-                        .withPolicy(certificatePolicy)
-                        .build());
+        System.out.printf("Created certificate with name: %s.%n", certificate.getName());
 
-        System.out.printf("Create certificate %s.%n", certificate.toString());
+        CertificateOperation certificatePurge = certificateClient
+                .beginCreateCertificate(certificateToPurgeName, certificatePolicy).poll().getValue();
 
-        CertificateOperation certificatePurge = keyVaultClient.createCertificate(
-                new CreateCertificateRequest
-                        .Builder(vault.vaultUri(), certificateToPurgeName)
-                        .withPolicy(certificatePolicy)
-                        .build());
-        System.out.printf("Create certificate %s.%n", certificatePurge.toString());
+        System.out.printf("Created certificate with name: %s.%n", certificatePurge.getName());
 
-        List<CertificateItem> certificates = keyVaultClient.getCertificates(vault.vaultUri());
-        System.out.printf("Certificate: %s.%n", Arrays.toString(certificates.toArray()));
+        PagedIterable<CertificateProperties> certificates = certificateClient.listPropertiesOfCertificates();
+        System.out.printf("Certificates: %s.%n",
+                Arrays.toString(certificates.stream().map(CertificateProperties::getName).toArray()));
 
-        DeletedCertificateBundle deletedCertificate = keyVaultClient.deleteCertificate(vault.vaultUri(), certificateToRecoverName);
-        pollOnCertificateDeletion(vault.vaultUri(), certificateToRecoverName);
-        System.out.printf("Deleted certificate %s.%n", deletedCertificate.toString());
+        CertificateOperation deletedCertificate = certificateClient.deleteCertificateOperation(certificateToRecoverName);
+        pollOnCertificateDeletion(certificateClient, certificateToRecoverName);
+        System.out.printf("Deleted certificate with name: %s.%n", deletedCertificate.getName());
 
-        deletedCertificate = keyVaultClient.deleteCertificate(vault.vaultUri(), certificateToPurgeName);
-        pollOnCertificateDeletion(vault.vaultUri(), certificateToPurgeName);
-        System.out.printf("Deleted certificate %s.%n", deletedCertificate.toString());
+        deletedCertificate = certificateClient.deleteCertificateOperation(certificateToPurgeName);
+        pollOnCertificateDeletion(certificateClient, certificateToPurgeName);
+        System.out.printf("Deleted certificate with name: %s.%n", deletedCertificate.getName());
 
         // List deleted secrets
-        List<DeletedCertificateItem> deletedCertificates = keyVaultClient.getDeletedCertificates(vault.vaultUri());
-        System.out.printf("Deleted certificate %s.%n", Arrays.toString(deletedCertificates.toArray()));
+        PagedIterable<DeletedCertificate> deletedCertificates = certificateClient.listDeletedCertificates();
+        System.out.printf("Deleted certificates: %s.%n",
+                Arrays.toString(deletedCertificates.stream().map(DeletedCertificate::getName).toArray()));
 
         // Recover a deleted secret
-        CertificateBundle recoveredCertificate = keyVaultClient.recoverDeletedCertificate(vault.vaultUri(), certificateToRecoverName);
-        System.out.printf("Recovered certificate %s.%n", recoveredCertificate.toString());
+        KeyVaultCertificateWithPolicy recoveredCertificate = certificateClient.beginRecoverDeletedCertificate(certificateToRecoverName).poll().getValue();
+        System.out.printf("Recovered certificate with name: %s.%n", recoveredCertificate.getName());
 
         // Purge a deleted secret
-        keyVaultClient.purgeDeletedCertificate(vault.vaultUri(), certificateToPurgeName);
-        System.out.printf("Purged certificate %s.%n,", certificateToPurgeName);
+        certificateClient.purgeDeletedCertificate(certificateToPurgeName);
+        System.out.printf("Purged certificate with name: %s.%n,", certificateToPurgeName);
 
         // List the vault secrets
-        certificates = keyVaultClient.listCertificates(vault.vaultUri());
-        System.out.printf("Certificates: %s.%n", Arrays.toString(certificates.toArray()));
+        certificates = certificateClient.listPropertiesOfCertificates();
+        System.out.printf("Certificates: %s.%n",
+                Arrays.toString(certificates.stream().map(CertificateProperties::getName).toArray()));
 
     }
 
-    private static List<String> deletedVaultsToString(List<DeletedVault> deletedVaults) {
+    private static List<String> deletedVaultsToString(PagedIterable<DeletedVault> deletedVaults) {
         List<String> vaultNames = new ArrayList<>();
         for (DeletedVault vault : deletedVaults) {
             vaultNames.add(vault.name());
@@ -320,7 +357,7 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
 
         while (pendingPollCount < 21) {
             DeletedVault deletedVault = azure.vaults().getDeleted(vaultName, VAULT_REGION.name());
-            if (deletedVault == null ) {
+            if (deletedVault == null) {
                 Thread.sleep(10000);
                 pendingPollCount++;
                 continue;
@@ -332,51 +369,46 @@ public class SoftDeleteSample extends KeyVaultSampleBase {
         throw new Exception("Deleting vault delayed");
     }
 
-    protected static DeletedCertificateBundle pollOnCertificateDeletion(String vaultBaseUrl, String certificateName)
+    protected static DeletedCertificate pollOnCertificateDeletion(CertificateClient certificateClient, String certificateName)
             throws Exception {
         int pendingPollCount = 0;
         while (pendingPollCount < 21) {
-            DeletedCertificateBundle certificateBundle = keyVaultClient.getDeletedCertificate(vaultBaseUrl,
-                    certificateName);
-            if (certificateBundle == null) {
-                Thread.sleep(10000);
-
-                pendingPollCount += 1;
-                continue;
-            } else {
-                return certificateBundle;
+            DeletedCertificate deletedCertificate = certificateClient.getDeletedCertificate(certificateName);
+            if (deletedCertificate != null) {
+                return deletedCertificate;
             }
+            Thread.sleep(10000);
+            pendingPollCount += 1;
+            continue;
         }
         throw new Exception("Deleting certificate delayed");
     }
 
-    protected static DeletedKeyBundle pollOnKeyDeletion(String vaultBaseUrl, String keyName) throws Exception {
-        int pendingPollCount = 0;
+    protected static DeletedKey pollOnKeyDeletion(KeyClient keyClient, String keyName) throws Exception {
+        Integer pendingPollCount = 0;
         while (pendingPollCount < 21) {
-            DeletedKeyBundle deletedKeyBundle = keyVaultClient.getDeletedKey(vaultBaseUrl, keyName);
-            if (deletedKeyBundle == null) {
-                Thread.sleep(10000);
-
-                pendingPollCount += 1;
-                continue;
+            DeletedKey deleteKey = keyClient.getDeletedKey("keyName");
+            if (deleteKey != null) {
+                return deleteKey;
             } else {
-                return deletedKeyBundle;
+                Thread.sleep(10000);
+                pendingPollCount++;
+                continue;
             }
         }
         throw new Exception("Deleting key delayed");
     }
 
-    protected static DeletedSecretBundle pollOnSecretDeletion(String vaultBaseUrl, String secretName) throws Exception {
-        int pendingPollCount = 0;
+    protected static DeletedSecret pollOnSecretDeletion(SecretClient secretClient, String secretName) throws Exception {
+        Integer pendingPollCount = 0;
         while (pendingPollCount < 50) {
-            DeletedSecretBundle deletedSecretBundle = keyVaultClient.getDeletedSecret(vaultBaseUrl, secretName);
-            if (deletedSecretBundle == null) {
-                Thread.sleep(10000);
-
-                pendingPollCount += 1;
-                continue;
+            DeletedSecret deletedSecret = secretClient.getDeletedSecret(secretName);
+            if (deletedSecret != null) {
+                return deletedSecret;
             } else {
-                return deletedSecretBundle;
+                Thread.sleep(10000);
+                pendingPollCount++;
+                continue;
             }
         }
         throw new Exception("Deleting secret delayed");
